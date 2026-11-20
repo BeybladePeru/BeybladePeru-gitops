@@ -1,0 +1,41 @@
+# Overlay QA: se promueve copiando el SHA validado en dev (PR manual).
+# Ademas de la app, ejecuta la suite HTTP (test-job.yaml) como hook PostSync.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: beybladeperu-qa
+
+resources:
+  - ../../base
+  - sealed-secrets.yaml
+  - test-job.yaml
+
+# Los tres tags deben ser el mismo SHA: la imagen de tests sale del mismo commit
+images:
+  - name: ghcr.io/lolxd123v2/beybladeperu-backend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+  - name: ghcr.io/lolxd123v2/beybladeperu-frontend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+  - name: ghcr.io/lolxd123v2/beybladeperu-backend-tests
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+
+patches:
+  - target:
+      kind: Ingress
+      name: beybladeperu
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: qa.beybladeperu.localhost
+  - path: patch-configmap.yaml
+  - path: patch-recursos.yaml
+  # Wave -1: el Secret tiene que estar descifrado antes de que arranque MySQL (wave 0)
+  - target:
+      kind: SealedSecret
+    patch: |-
+      apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      metadata:
+        name: no-importa   # con target, kustomize aplica el parche a todos los SealedSecret
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"

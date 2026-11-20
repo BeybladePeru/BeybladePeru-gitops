@@ -1,0 +1,41 @@
+# Overlay DEV: lo actualiza el CI (PR automatico) con el SHA de cada push a main.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: beybladeperu-dev
+
+resources:
+  - ../../base
+  # SealedSecret "beybladeperu-secrets" cifrado para este namespace (ver plataforma/README.md)
+  - sealed-secrets.yaml
+
+# Tag = SHA completo del commit de BeybladePeru (nunca :latest). El CI reescribe estas lineas.
+images:
+  - name: ghcr.io/lolxd123v2/beybladeperu-backend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+  - name: ghcr.io/lolxd123v2/beybladeperu-frontend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+
+patches:
+  # Host del Ingress de este ambiente
+  - target:
+      kind: Ingress
+      name: beybladeperu
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: dev.beybladeperu.localhost
+  # FRONTEND_URL (CORS y enlaces de los correos)
+  - path: patch-configmap.yaml
+  # Recursos minimos: dev comparte el k3d con qa y prod
+  - path: patch-recursos.yaml
+  # Wave -1: el Secret tiene que estar descifrado antes de que arranque MySQL (wave 0)
+  - target:
+      kind: SealedSecret
+    patch: |-
+      apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      metadata:
+        name: no-importa   # con target, kustomize aplica el parche a todos los SealedSecret
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"

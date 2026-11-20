@@ -1,0 +1,17 @@
+# Configuracion no sensible del backend. Los overlays parchean lo que cambia
+# por ambiente (FRONTEND_URL, remitente, etc.).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  # Origen permitido por CORS y base de los enlaces en los correos
+  FRONTEND_URL: http://beybladeperu.localhost
+  JWT_EXPIRES_IN: 7d
+  CLOUDINARY_CLOUD_NAME: CAMBIAR
+  BREVO_SENDER_EMAIL: no-reply@beybladeperu.localhost
+  BREVO_SENDER_NAME: BeybladePeru

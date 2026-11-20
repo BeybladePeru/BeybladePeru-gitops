@@ -1,0 +1,45 @@
+# Overlay PROD: se promueve con el mismo SHA que paso los tests de QA (PR manual).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: beybladeperu-prod
+
+resources:
+  - ../../base
+  - sealed-secrets.yaml
+
+images:
+  - name: ghcr.io/lolxd123v2/beybladeperu-backend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+  - name: ghcr.io/lolxd123v2/beybladeperu-frontend
+    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+
+patches:
+  - target:
+      kind: Ingress
+      name: beybladeperu
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: beybladeperu.localhost
+  - path: patch-configmap.yaml
+  - path: patch-recursos.yaml
+  # Volumen de MySQL mas grande. OJO: volumeClaimTemplates es inmutable; cambiarlo
+  # despues del primer despliegue exige recrear el StatefulSet (--cascade=orphan).
+  - target:
+      kind: StatefulSet
+      name: mysql
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 5Gi
+  # Wave -1: el Secret tiene que estar descifrado antes de que arranque MySQL (wave 0)
+  - target:
+      kind: SealedSecret
+    patch: |-
+      apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      metadata:
+        name: no-importa   # con target, kustomize aplica el parche a todos los SealedSecret
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"

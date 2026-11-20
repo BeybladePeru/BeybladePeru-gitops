@@ -1,0 +1,44 @@
+# Wave 4 / PostSync: corre tests/run-tests.ts contra el Service interno del backend
+# cuando todo lo del Sync (MySQL, migracion, backend, frontend, Ingress) esta Healthy.
+# Si un test falla, el proceso sale con codigo 1, el Job falla y Argo CD marca la
+# sincronizacion de QA como fallida: esa es la senal para NO promover a prod.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: api-tests
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  backoffLimit: 0            # un test fallido es un resultado, no un error transitorio
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-tests
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: tests
+          # Target "test" de back/Dockerfile (tsx + tests/), publicado por el CI
+          image: ghcr.io/lolxd123v2/beybladeperu-backend-tests
+          env:
+            - name: TEST_BASE_URL
+              value: http://backend:3000
+          # Credenciales opcionales: TEST_EMAIL, TEST_PASSWORD, TEST_ADMIN_EMAIL,
+          # TEST_ADMIN_PASSWORD. Si el Secret no existe la suite salta los tests de auth.
+          envFrom:
+            - secretRef:
+                name: beybladeperu-test-credentials
+                optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }

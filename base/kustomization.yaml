@@ -1,0 +1,21 @@
+# Base comun a dev, qa y prod. No se despliega sola: cada overlay de envs/<ambiente>
+# aporta el namespace, el tag de imagen (SHA del commit) y el SealedSecret
+# "beybladeperu-secrets" que esta base referencia.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - mysql/service.yaml
+  - mysql/statefulset.yaml
+  - migration-job.yaml
+  - backend/configmap.yaml
+  - backend/service.yaml
+  - backend/deployment.yaml
+  - frontend/service.yaml
+  - frontend/deployment.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: beybladeperu
+    includeSelectors: false

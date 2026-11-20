@@ -1,0 +1,27 @@
+# Cluster local para los tres ambientes (un namespace por ambiente).
+# Crear:   k3d cluster create --config plataforma/k3d-config.yaml
+# Borrar:  k3d cluster delete beybladeperu
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: beybladeperu
+servers: 1
+agents: 2
+# Version fija de k3s (la que trae por defecto k3d v5.9.0)
+image: rancher/k3s:v1.35.5-k3s1
+ports:
+  # El load balancer de k3d (serverlb) reenvia 80/443 del host a Traefik.
+  # Asi http://dev.beybladeperu.localhost llega al Ingress sin port-forward.
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 443:443
+    nodeFilters:
+      - loadbalancer
+options:
+  k3d:
+    wait: true
+    timeout: "180s"
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true   # deja kubectl apuntando a k3d-beybladeperu

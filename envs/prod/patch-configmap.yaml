@@ -1,0 +1,7 @@
+# PROD usa el host raiz (igual al valor de la base; se deja explicito a proposito)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  FRONTEND_URL: http://beybladeperu.localhost

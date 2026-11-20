@@ -1,0 +1,10 @@
+# Nunca versionar material en claro: solo los SealedSecret cifrados (sealed-secrets.yaml)
+*.pem
+*.key
+*BACKUP*
+secret.yaml
+*-secret.yaml
+.env*
+
+# Prompt de traspaso entre estaciones de trabajo (no es configuracion)
+PROMPT_CONTINUACION.md

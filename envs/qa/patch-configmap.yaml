@@ -1,0 +1,8 @@
+# Solo las claves que cambian en QA
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  FRONTEND_URL: http://qa.beybladeperu.localhost
+  BREVO_SENDER_NAME: BeybladePeru (QA)

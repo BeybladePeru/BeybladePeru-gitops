@@ -1,0 +1,36 @@
+# Un solo host por ambiente: /api y /health van al backend, el resto al frontend.
+# Por eso el frontend se construye con NEXT_PUBLIC_API_URL=/ (mismo origen).
+# k3d trae Traefik como Ingress Controller; cada overlay cambia el host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: beybladeperu
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: beybladeperu.localhost
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  name: http
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http

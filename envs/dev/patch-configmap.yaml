@@ -1,0 +1,8 @@
+# Solo las claves que cambian en DEV; el resto viene de base/backend/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  FRONTEND_URL: http://dev.beybladeperu.localhost
+  BREVO_SENDER_NAME: BeybladePeru (DEV)

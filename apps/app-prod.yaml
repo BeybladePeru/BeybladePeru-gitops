@@ -1,0 +1,31 @@
+# PROD: misma politica automatica; la "aprobacion" es el merge del PR de promocion
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: beybladeperu-prod
+  namespace: argocd
+  # Al borrar la Application, Argo CD borra tambien sus recursos (no los PVC de MySQL)
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/joacx200222/BeybladePeru-gitops.git
+    targetRevision: main
+    path: envs/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: beybladeperu-prod
+  syncPolicy:
+    automated:
+      prune: true      # borra del cluster lo que se quite de Git
+      selfHeal: true   # revierte cambios manuales (kubectl edit) al estado de Git
+    syncOptions:
+      - CreateNamespace=true
+    # Reintentos ante fallos transitorios (p. ej. imagen aun no publicada en GHCR)
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

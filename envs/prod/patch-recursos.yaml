@@ -1,0 +1,49 @@
+# LIMITACION CONOCIDA: el backend se queda en 1 replica a proposito.
+#  - node-cron (back/src/jobs/faction-season.job.ts) programa un job diario dentro
+#    del proceso: con N replicas se ejecutaria N veces.
+#  - El rate limiting (back/src/middlewares/rate-limit.middleware.ts) guarda los
+#    contadores en un Map en memoria: con N replicas cada pod cuenta por separado y
+#    el limite real seria N veces mayor.
+# Para escalar hay que sacar antes el cron a un CronJob de Kubernetes y el rate limit
+# a un almacen compartido (Redis o MySQL). Ver NOTAS_IMPLEMENTACION.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: backend
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { memory: 768Mi }
+---
+# El frontend no tiene estado: 2 replicas para tolerar la caida de un pod
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: frontend
+          resources:
+            requests: { cpu: 100m, memory: 160Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  template:
+    spec:
+      containers:
+        - name: mysql
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { memory: 1Gi }

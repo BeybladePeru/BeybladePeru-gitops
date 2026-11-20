@@ -1,0 +1,31 @@
+# DEV: se sincroniza solo cuando el CI mergea el PR que cambia el tag
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: beybladeperu-dev
+  namespace: argocd
+  # Al borrar la Application, Argo CD borra tambien sus recursos (no los PVC de MySQL)
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/joacx200222/BeybladePeru-gitops.git
+    targetRevision: main
+    path: envs/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: beybladeperu-dev
+  syncPolicy:
+    automated:
+      prune: true      # borra del cluster lo que se quite de Git
+      selfHeal: true   # revierte cambios manuales (kubectl edit) al estado de Git
+    syncOptions:
+      - CreateNamespace=true
+    # Reintentos ante fallos transitorios (p. ej. imagen aun no publicada en GHCR)
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
