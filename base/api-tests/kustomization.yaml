@@ -1,0 +1,7 @@
+# Pruebas integrales post-despliegue (hook PostSync). No forma parte de base/:
+# cada overlay que quiera validar su sync la incluye en sus resources.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - job.yaml

@@ -1,17 +1,26 @@
 # Overlay DEV: lo actualiza el CI (PR automatico) con el SHA de cada push a main.
+# Cada sync termina con las pruebas de la API (base/api-tests): si fallan, no se promueve.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: beybladeperu-dev
+
 resources:
   - ../../base
   # SealedSecret "beybladeperu-secrets" cifrado para este namespace (ver plataforma/README.md)
   - sealed-secrets.yaml
+  - ../../base/api-tests
+
 # Tag = SHA completo del commit de BeybladePeru (nunca :latest). El CI reescribe estas lineas.
+# Los tres tags son el mismo SHA: la imagen de pruebas sale del mismo commit.
 images:
   - name: ghcr.io/lolxd123v2/beybladeperu-backend
     newTag: 2f9b326629e57ec7438c2fbe49796e1517452d2e
   - name: ghcr.io/lolxd123v2/beybladeperu-frontend
     newTag: 2f9b326629e57ec7438c2fbe49796e1517452d2e
+  - name: ghcr.io/lolxd123v2/beybladeperu-backend-tests
+    newTag: 2f9b326629e57ec7438c2fbe49796e1517452d2e
+
 patches:
   # Host del Ingress de este ambiente
   - target:

@@ -1,0 +1,65 @@
+# Valida los manifiestos en cada PR y push a main, antes de que Argo CD los sincronice.
+#  1. kustomize genera dev, qa y prod (falla si un overlay no compila).
+#  2. kubeconform valida cada recurso contra el esquema de Kubernetes y los CRD de
+#     Argo CD y Sealed Secrets (catalogo datreeio/CRDs-catalog).
+#  3. Reglas propias: ninguna imagen sin tag o con :latest, y en cada ambiente las
+#     imagenes de la app comparten el mismo SHA.
+# Con la rama main protegida, este job es un "required status check".
+name: Validar manifiestos
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KUBECONFORM_VERSION: v0.6.7
+
+jobs:
+  validate:
+    name: Validar manifiestos (kustomize + kubeconform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xz -C /usr/local/bin kubeconform
+          kubeconform -v
+
+      - name: Generar los overlays
+        run: |
+          mkdir -p render
+          for env in dev qa prod; do
+            kubectl kustomize "envs/$env" > "render/$env.yaml"
+            echo "$env: $(grep -c '^kind:' "render/$env.yaml") recursos"
+          done
+          kubectl kustomize plataforma/sealed-secrets > render/plataforma.yaml
+
+      - name: kubeconform
+        run: |
+          # El CRD de Sealed Secrets viene del release oficial y no hay esquema para el tipo CRD
+          kubeconform -strict -summary -output pretty -skip CustomResourceDefinition \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            render/*.yaml apps/*.yaml plataforma/root-app.yaml
+
+      - name: Imagenes con tag explicito (nunca latest)
+        run: |
+          bad=$(grep -hE '^\s+image:' render/dev.yaml render/qa.yaml render/prod.yaml \
+                | grep -E 'beybladeperu-' | grep -vE ':[0-9a-f]{40}$' || true)
+          if [ -n "$bad" ]; then echo "::error::Imagenes sin SHA completo:"; echo "$bad"; exit 1; fi
+          echo "OK: todas las imagenes de la app usan un SHA completo"
+
+      - name: Mismo SHA para las imagenes de cada ambiente
+        run: |
+          for env in dev qa prod; do
+            n=$(grep -A1 -E 'name: .*/beybladeperu-' "envs/$env/kustomization.yaml" | grep -oE 'newTag: [0-9a-f]+' | sort -u | wc -l)
+            if [ "$n" -ne 1 ]; then echo "::error::envs/$env mezcla SHA distintos"; exit 1; fi
+            echo "OK: envs/$env usa un unico SHA"
+          done

@@ -1,0 +1,17 @@
+# Responsables por carpeta (Exposicion 01, Tabla 11). Con main protegida y
+# "Require review from Code Owners", cada PR necesita la aprobacion del dueno de lo que toca.
+# El ultimo patron que coincide gana.
+
+# Por defecto: cualquiera de los revisores
+*                 @joacx200222 @lolxd123v2
+
+# Ambientes de desarrollo y pruebas: revisor
+/envs/dev/        @joacx200222 @lolxd123v2
+/envs/qa/         @joacx200222 @lolxd123v2
+
+# Produccion, base comun, plataforma y Applications: operador de la plataforma
+/envs/prod/       @joacx200222
+/base/            @joacx200222
+/plataforma/      @joacx200222
+/apps/            @joacx200222
+/.github/         @joacx200222

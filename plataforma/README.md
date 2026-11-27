@@ -107,7 +107,18 @@ foreach ($ns in 'beybladeperu-dev','beybladeperu-qa','beybladeperu-prod') {
 }
 ```
 
-## 6. Aplicaciones
+## 6. Aplicaciones (app of apps)
+
+`plataforma/root-app.yaml` es la unica Application que se aplica a mano. Gestiona todo `apps/`:
+la Application de plataforma (Sealed Secrets, wave -1) y los tres ambientes (waves 0, 1 y 2).
+Desde ese momento, agregar o cambiar una Application tambien es un PR.
+
+```powershell
+kubectl apply -f plataforma/root-app.yaml
+kubectl -n argocd get applications -w
+```
+
+### Antes (instalacion inicial, sin app raiz)
 
 ```powershell
 # Primero hay que commitear y pushear envs/*/sealed-secrets.yaml a main
