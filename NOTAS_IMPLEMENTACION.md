@@ -112,7 +112,7 @@ Fecha de inicio: 2026-11-15.
 
 ## 18. Repos en cuentas distintas
 
-- **Decisión.** El repo de la app sigue en `lolxd123v2/BeybladePeru`, y el repo GitOps se crea en `joacx200222/BeybladePeru-gitops`. La cuenta `joacx200222` también tiene acceso al repo de la app.
+- **Decisión.** El repo de la app sigue en `lolxd123v2/BeybladePeru`, y el repo GitOps se crea en `BeybladePeru/BeybladePeru-gitops`. La cuenta `joacx200222` también tiene acceso al repo de la app.
 - **Qué cambió.** El `repoURL` de `apps/app-*.yaml`, el `repository` del checkout en `ci.yml` y el usuario del Secret de repositorio de Argo CD en `plataforma/README.md`.
 - **Qué no cambió.** Las imágenes siguen en `ghcr.io/lolxd123v2/...`: el `GITHUB_TOKEN` del CI solo puede publicar paquetes en la cuenta dueña del repo de la app.
 - **Consecuencia.** El secret `BEYBLADE_TOKEN` es un PAT fine-grained de `joacx200222`, limitado a `BeybladePeru-gitops` (Contents y Pull requests: read/write). Se guarda como secret en `lolxd123v2/BeybladePeru`, y para eso hace falta rol **admin** en ese repo: con permiso de escritura no se pueden gestionar secrets. Si el repo GitOps es privado, el PAT de solo lectura de Argo CD también sale de `joacx200222`.
