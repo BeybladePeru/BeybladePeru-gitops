@@ -31,6 +31,12 @@ spec:
               port: http
             periodSeconds: 3
             failureThreshold: 20
+          # Igual que el backend: drenar 10 s antes de SIGTERM para que Traefik
+          # deje de enrutar al pod saliente (despliegues sin cortes)
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
           readinessProbe:
             httpGet:
               path: /

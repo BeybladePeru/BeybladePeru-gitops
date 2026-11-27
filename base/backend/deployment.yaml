@@ -61,6 +61,13 @@ spec:
               port: http
             periodSeconds: 3
             failureThreshold: 20
+          # Al terminar, el pod sigue atendiendo 10 s antes de recibir SIGTERM: da tiempo
+          # a que Traefik saque su endpoint. Sin esto, en cada rollout/rollback algunas
+          # peticiones iban a la IP del pod ya cerrado y colgaban hasta el timeout (504).
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
           # readiness: saca al pod del Service mientras no responda
           readinessProbe:
             httpGet:
