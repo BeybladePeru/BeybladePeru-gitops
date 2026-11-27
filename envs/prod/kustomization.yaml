@@ -10,9 +10,9 @@ resources:
 
 images:
   - name: ghcr.io/lolxd123v2/beybladeperu-backend
-    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+    newTag: 6383a7be8a128267aeb5b2a2aa8a31298a4bae0f
   - name: ghcr.io/lolxd123v2/beybladeperu-frontend
-    newTag: 9b41df540f7d66e3df757c3bb4ef216ad18777bf
+    newTag: 6383a7be8a128267aeb5b2a2aa8a31298a4bae0f
 
 patches:
   - target:
