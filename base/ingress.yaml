@@ -20,8 +20,11 @@ spec:
                 name: backend
                 port:
                   name: http
+          # Prefix y no Exact: Traefik ordena las rutas por largo de la regla, y
+          # Path(`/health`) empata con PathPrefix(`/`) (15 caracteres cada una), asi
+          # que /health podia caer al frontend. PathPrefix(`/health`) gana siempre.
           - path: /health
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: backend
