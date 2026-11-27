@@ -1,5 +1,5 @@
 # Overlay QA: se promueve copiando el SHA validado en dev (PR manual).
-# Ademas de la app, ejecuta la suite HTTP (test-job.yaml) como hook PostSync.
+# Ademas de la app, ejecuta la suite HTTP (base/api-tests) como hook PostSync.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -8,7 +8,7 @@ namespace: beybladeperu-qa
 resources:
   - ../../base
   - sealed-secrets.yaml
-  - test-job.yaml
+  - ../../base/api-tests
 
 # Los tres tags deben ser el mismo SHA: la imagen de tests sale del mismo commit
 images:

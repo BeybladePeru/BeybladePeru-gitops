@@ -1,0 +1,27 @@
+# PLATAFORMA: el controlador de Sealed Secrets tambien se gestiona desde Git.
+# Wave -1 dentro de la app raiz: se sincroniza antes que los ambientes, que dependen
+# de el para descifrar sus SealedSecret.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: plataforma-sealed-secrets
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/joacx200222/BeybladePeru-gitops.git
+    targetRevision: main
+    path: plataforma/sealed-secrets
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      # Sin prune a proposito: un error en Git nunca debe borrar el controlador
+      # (sin el, ningun ambiente puede descifrar sus secretos)
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

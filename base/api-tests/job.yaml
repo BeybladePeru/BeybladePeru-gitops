@@ -1,7 +1,8 @@
 # Wave 4 / PostSync: corre tests/run-tests.ts contra el Service interno del backend
 # cuando todo lo del Sync (MySQL, migracion, backend, frontend, Ingress) esta Healthy.
 # Si un test falla, el proceso sale con codigo 1, el Job falla y Argo CD marca la
-# sincronizacion de QA como fallida: esa es la senal para NO promover a prod.
+# sincronizacion como fallida: en dev bloquea la promocion a QA, y en QA, a prod.
+# Componente compartido: lo incluyen envs/dev y envs/qa (prod no corre pruebas).
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -4,6 +4,9 @@ kind: Application
 metadata:
   name: beybladeperu-qa
   namespace: argocd
+  annotations:
+    # Orden dentro de la app raiz (plataforma -1, dev 0, qa 1, prod 2)
+    argocd.argoproj.io/sync-wave: "1"
   # Al borrar la Application, Argo CD borra tambien sus recursos (no los PVC de MySQL)
   finalizers:
     - resources-finalizer.argocd.argoproj.io

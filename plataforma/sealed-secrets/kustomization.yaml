@@ -1,0 +1,8 @@
+# Controlador de Sealed Secrets, gestionado por Argo CD (Application plataforma-sealed-secrets).
+# Version fija: cambiarla es un PR como cualquier otro. La clave privada del controlador
+# NO esta aqui (se genera en el cluster y se respalda fuera de Git).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.41.2/controller.yaml
