@@ -12,6 +12,6 @@ data:
   # Origen permitido por CORS y base de los enlaces en los correos
   FRONTEND_URL: http://beybladeperu.localhost
   JWT_EXPIRES_IN: 7d
-  CLOUDINARY_CLOUD_NAME: CAMBIAR
-  BREVO_SENDER_EMAIL: no-reply@beybladeperu.localhost
+  CLOUDINARY_CLOUD_NAME: bg5awvia
+  BREVO_SENDER_EMAIL: joaco20022@gmail.com
   BREVO_SENDER_NAME: BeybladePeru
