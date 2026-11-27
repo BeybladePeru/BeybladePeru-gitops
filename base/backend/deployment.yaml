@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: backend
   annotations:
-    # Wave 2: arranca con MySQL listo (wave 0) y el esquema migrado (wave 1)
+    # Wave 2: arranca con MySQL listo (wave 0); el initContainer migra el esquema
     argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: 1
@@ -18,6 +18,39 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+      # Migracion del esquema antes de arrancar la API. Antes era un Job hook (Sync, wave 1),
+      # pero el auto-sync por self-heal no ejecuta hooks: al recrear un ambiente borrado,
+      # el backend arrancaba sin tablas. Como initContainer, todo pod nuevo migra primero,
+      # venga de Argo CD, del self-heal o de un kubectl apply. "migrate deploy" es
+      # idempotente (~1 s sin cambios) y Prisma usa un lock de BD si hubiera varias replicas.
+      # El bucle espera a MySQL si todavia no responde (p. ej. al recrear todo a la vez).
+      initContainers:
+        - name: migrate
+          # Misma imagen que el backend: trae prisma CLI, schema y migraciones
+          image: ghcr.io/lolxd123v2/beybladeperu-backend
+          command:
+            - sh
+            - -c
+            - |
+              until node_modules/.bin/prisma migrate deploy --schema=database/prisma/schema.prisma; do
+                echo "migracion fallida, reintento en 5 s"; sleep 5
+              done
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: beybladeperu-secrets
+                  key: DATABASE_URL
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 384Mi
       containers:
         - name: backend
           # Sin tag a proposito: cada overlay fija el SHA con "images.newTag"

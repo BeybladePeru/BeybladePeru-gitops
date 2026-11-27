@@ -7,7 +7,6 @@ kind: Kustomization
 resources:
   - mysql/service.yaml
   - mysql/statefulset.yaml
-  - migration-job.yaml
   - backend/configmap.yaml
   - backend/service.yaml
   - backend/deployment.yaml
