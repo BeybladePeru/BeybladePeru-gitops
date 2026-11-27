@@ -142,6 +142,42 @@ Fecha de inicio: 2026-11-15.
 - `Set-Content -Encoding utf8` agrega un BOM (`EF BB BF`) en Windows PowerShell 5.1. Pasó al editar `envs/qa/kustomization.yaml` para la promoción. Kustomize lo tolera, pero ensucia el diff. Se quitó en un commit aparte, y las ediciones siguientes se hicieron con `sed`.
 - Relacionado: el paso de `yq` del CI conserva los comentarios, pero borra las líneas en blanco de `envs/dev/kustomization.yaml`. Es solo estético.
 
+## 23. Versión visible en `/health` (trazabilidad)
+
+- Para comprobar desde fuera qué versión corre en cada ambiente, y para que un rollback se pudiera ver, el CI pasa el SHA del commit como `build-arg APP_VERSION` al backend, y `GET /health` lo devuelve en el campo `version`. El cambio entró con el PR #2 de la app y sirvió como segunda versión real (`2f9b326`) para las demos.
+
+## 24. Corte breve en cada rollout: `preStop`
+
+- **Problema.** Justo después del rollback, `/health` devolvió **504 Gateway Timeout** tras ~30 s. Se midió consultando `/health` cada 0,5 s durante un rolling restart: 1 de 112 peticiones quedó colgada. Al terminar un pod, Kubernetes le envía SIGTERM al mismo tiempo que lo saca de los endpoints, y Traefik sigue enrutando unos instantes a la IP de un pod que ya cerró su puerto.
+- **Decisión.** Backend y frontend tienen ahora `lifecycle.preStop: sleep 10`. El pod sigue atendiendo 10 s mientras Traefik retira su endpoint, y recién después recibe SIGTERM. La misma prueba dio **0 de 144** peticiones fallidas.
+
+## 25. El self-heal no ejecuta hooks: migración como initContainer
+
+- **Problema.** En la demo de desastre (borrar `beybladeperu-dev` entero), Argo CD recreó todo por self-heal, **menos el Job `prisma-migrate`**. El auto-sync que dispara el self-heal sobre la misma revisión aplica los recursos normales, pero no ejecuta hooks. El resultado: el backend corría sin tablas (`/api/factions` → "Error en la base de datos") y Argo CD lo marcaba Healthy, porque `/health` no consulta la BD. Hizo falta un sync explícito (25 s) para recuperar el ambiente. La recuperación ante desastre no era automática.
+- **Decisión (aprobada).** La migración pasó a ser un **initContainer** del backend (misma imagen, `prisma migrate deploy` en bucle hasta que MySQL responda). Se eliminó `base/migration-job.yaml`. Cualquier pod nuevo del backend migra antes de arrancar, venga de Argo CD, del self-heal o de un `kubectl apply`. Esto también cubre el caso del punto 17. Se mantiene el orden BD → migración → API.
+- **Verificación.** Al repetir el borrado del namespace, Argo CD lo recreó en **98 s**, con migración, las 3 facciones, `/health` y `/` en 200, y sin intervención manual. Waves vigentes: -1 SealedSecret, 0 MySQL, 2 backend (con migración), 3 frontend + Ingress, 4 `api-tests` (PostSync, solo QA).
+- Detalle: los Jobs `prisma-migrate` de la versión anterior quedaron en qa y prod, porque Argo CD no hace prune de los hooks. Se borraron a mano.
+- **Lección para el informe:** que Argo CD marque el ambiente como "Healthy" no asegura que la aplicación funcione. El health check de Kubernetes solo ve lo que miden las probes. Trabajo futuro: un `/health/ready` que consulte la BD.
+
+## 26. Demos y métricas de la implementación
+
+Todas las demos se hicieron en dev, el 27-11-2026 (UTC). Los registros con marcas de tiempo están en los logs de las demos.
+
+| Escenario | Acción | Resultado | Tiempo |
+|---|---|---|---|
+| Entrega completa de un cambio | Merge del PR #2 de la app → CI → PR automático en GitOps (#4) → merge → Argo CD | dev sirve `version: 2f9b326` | **6 min 28 s** (CI de `main`: 5 min 31 s; GitOps → dev sirviendo: 41 s) |
+| Rollback | `git revert` del merge de dev en el repo GitOps | dev vuelve a `6383a7b`, Healthy, `/health` 200 | **23 s** desde el push |
+| Restauración | `git revert` del revert | dev vuelve a `2f9b326` | **22 s** desde el push |
+| Deriva: réplicas | `kubectl scale deploy/backend --replicas=3` | El self-heal vuelve a 1 réplica | **1-2 s** |
+| Deriva: recurso borrado | `kubectl delete svc frontend` | El Service se recrea y `/` vuelve a 200 | **3-5 s** |
+| Desastre (antes del punto 25) | `kubectl delete ns beybladeperu-dev` | Recreado **sin migración**; hizo falta un sync manual | 120 s + 25 s manual |
+| Desastre (después del punto 25) | `kubectl delete ns beybladeperu-dev` | Recreado completo y funcional, sin intervención | **98 s** |
+| Disponibilidad en rollout (antes del punto 24) | Rolling restart con `/health` cada 0,5 s | 1 de 112 fallidas (timeout) | — |
+| Disponibilidad en rollout (después del punto 24) | Igual | **0 de 144** fallidas | — |
+| Validación automática en QA | PostSync `api-tests` en cada revisión | 45/45 en todas las ejecuciones | ~30 s |
+
+El historial de despliegues que se puede auditar está en dos lugares: `git log` del repo GitOps (quién cambió qué y cuándo) y `status.history` de cada Application de Argo CD (qué revisión se desplegó y cuándo).
+
 ---
 
 ## Verificaciones ejecutadas
