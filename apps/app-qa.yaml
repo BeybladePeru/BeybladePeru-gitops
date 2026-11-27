@@ -13,7 +13,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/joacx200222/BeybladePeru-gitops.git
+    repoURL: https://github.com/BeybladePeru/BeybladePeru-gitops.git
     targetRevision: main
     path: envs/qa
   destination:

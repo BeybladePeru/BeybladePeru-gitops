@@ -55,7 +55,7 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443
 ```powershell
 kubectl -n argocd create secret generic repo-beybladeperu-gitops `
   --from-literal=type=git `
-  --from-literal=url=https://github.com/joacx200222/BeybladePeru-gitops.git `
+  --from-literal=url=https://github.com/BeybladePeru/BeybladePeru-gitops.git `
   --from-literal=username=joacx200222 `
   --from-literal=password=<PAT_CONTENTS_READ>
 kubectl -n argocd label secret repo-beybladeperu-gitops argocd.argoproj.io/secret-type=repository
