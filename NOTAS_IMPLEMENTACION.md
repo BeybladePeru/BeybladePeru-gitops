@@ -87,7 +87,7 @@ Fecha de inicio: 2026-11-15.
 ## 14. Observaciones sobre lo ya hecho (sin cambios aplicados)
 
 - **Node.js 20 llegó a EOL el 30-04-2026.** Los Dockerfiles y el CI usan `node:20-alpine`. Funciona, pero ya no recibe parches de seguridad. Se recomienda subir a Node 22 o 24 LTS en un cambio aparte, que debe pasar por QA.
-- `CLOUDINARY_CLOUD_NAME` en `base/backend/configmap.yaml` tiene el valor `CAMBIAR`; hay que poner el valor real.
+- ~~`CLOUDINARY_CLOUD_NAME` en `base/backend/configmap.yaml` tiene el valor `CAMBIAR`.~~ Resuelto: ahora tiene el cloud name real, y `BREVO_SENDER_EMAIL` es el remitente verificado en Brevo (ver punto 19).
 - `EMAIL_LOGO_URL` no está en el ConfigMap. El backend usa como fallback `via.placeholder.com`. Conviene definirlo con una URL pública: un logo servido desde `*.localhost` no se ve en los clientes de correo.
 
 ## 15. Estación con Docker: WSL2 y memoria
@@ -117,6 +117,31 @@ Fecha de inicio: 2026-11-15.
 - **Qué no cambió.** Las imágenes siguen en `ghcr.io/lolxd123v2/...`: el `GITHUB_TOKEN` del CI solo puede publicar paquetes en la cuenta dueña del repo de la app.
 - **Consecuencia.** El secret `BEYBLADE_TOKEN` es un PAT fine-grained de `joacx200222`, limitado a `BeybladePeru-gitops` (Contents y Pull requests: read/write). Se guarda como secret en `lolxd123v2/BeybladePeru`, y para eso hace falta rol **admin** en ese repo: con permiso de escritura no se pueden gestionar secrets. Si el repo GitOps es privado, el PAT de solo lectura de Argo CD también sale de `joacx200222`.
 
+## 19. Servicios externos: Cloudinary y Brevo
+
+- Se crearon cuentas gratuitas. En Cloudinary hay que **generar** la API key (Settings → API Keys); no siempre viene creada. En Brevo, la API key es **Restricted**, con permiso solo de *Transactional email: All* (la app solo envía correos de verificación, recuperación de contraseña y bienvenida).
+- Brevo solo envía desde remitentes verificados. El valor anterior, `no-reply@beybladeperu.localhost`, se habría rechazado, así que se reemplazó por un Gmail verificado. Brevo advierte por DKIM/DMARC ("Freemail domain is not recommended"): los correos salen, pero pueden caer en spam. En producción real haría falta un dominio propio autenticado.
+- Brevo restringe la API key por IP de origen (*Security → Authorised IPs*). Hay que desactivarlo o autorizar la IP pública desde la que sale el cluster.
+- Los secretos se sellaron con una variante no interactiva de `sellar-secretos.ps1`: lee las claves de variables de entorno y usa la misma tubería `kubectl | kubeseal`, así que no queda texto en claro en disco. Las contraseñas de MySQL y el `JWT_SECRET` son distintos por ambiente.
+- **Cuidado al rotar claves:** volver a ejecutar el script regenera las contraseñas de MySQL, y un PVC ya inicializado no las acepta (punto 10). Para cambiar solo Cloudinary o Brevo hay que usar `kubeseal --merge-into` sobre el `sealed-secrets.yaml` existente.
+
+## 20. Despliegue real con Argo CD y promoción dev → qa → prod
+
+- El repo GitOps es privado. Argo CD lo lee con un PAT fine-grained de solo lectura (*Contents: Read*) de `joacx200222`, guardado en el Secret `repo-beybladeperu-gitops` (namespace `argocd`, etiqueta `secret-type=repository`). Ese Secret se creó con `kubectl` y **no está en Git**.
+- Los overlays de qa y prod apuntaban a `9b41df5`, una imagen que solo existió en local para la prueba de humo y nunca se publicó en GHCR. Por eso las Applications se aplicaron de a una: primero dev, que el CI ya había llevado a `6383a7b` (PR #1). Después qa se promovió por PR (#2) y se validó con `api-tests` (45/45). Por último se promovió prod (#3).
+- Las waves funcionaron como se diseñaron. En cada ambiente: MySQL Ready → `prisma-migrate` Complete al **primer intento** → backend → frontend + Ingress → (QA) `api-tests`. Ningún problema del punto 17 se repitió.
+
+## 21. Empate de prioridad de rutas en Traefik
+
+- **Problema.** Con todo en Synced/Healthy, `qa.beybladeperu.localhost/health` devolvía el 404 de Next.js, mientras que en dev y prod respondía el backend. Los manifiestos eran idénticos.
+- **Causa.** Traefik convierte cada path del Ingress en una regla y, si no hay prioridad explícita, ordena las reglas por **largo de la regla**. `Path(`/health`)` (pathType `Exact`) y `PathPrefix(`/`)` tienen 15 caracteres cada una y llevan el mismo `Host(...)`, así que empatan y el orden queda indefinido. En dev y prod ganó la regla correcta por azar; en QA, no.
+- **Decisión.** `/health` pasa a `pathType: Prefix`. La regla resultante, `PathPrefix(`/health`)`, tiene 21 caracteres y siempre gana a `PathPrefix(`/`)`. El frontend no tiene rutas `/health*`, así que no se pisa nada. `/api` no tenía el problema: `PathPrefix(`/api`)` ya era más larga. Argo CD lo aplicó en los tres ambientes al refrescar.
+
+## 22. PowerShell 5.1 y BOM en los YAML
+
+- `Set-Content -Encoding utf8` agrega un BOM (`EF BB BF`) en Windows PowerShell 5.1. Pasó al editar `envs/qa/kustomization.yaml` para la promoción. Kustomize lo tolera, pero ensucia el diff. Se quitó en un commit aparte, y las ediciones siguientes se hicieron con `sed`.
+- Relacionado: el paso de `yq` del CI conserva los comentarios, pero borra las líneas en blanco de `envs/dev/kustomization.yaml`. Es solo estético.
+
 ---
 
 ## Verificaciones ejecutadas
@@ -138,3 +163,10 @@ Fecha de inicio: 2026-11-15.
 | `kubectl apply --dry-run=server` de `envs/{dev,qa,prod}` (SealedSecret descartable sellado con el cert del cluster) | OK: 10 recursos en dev/prod, 11 en qa (`api-tests`) |
 | `kubectl apply --dry-run=server -f apps/` | OK: 3 Applications (solo un warning informativo por el nombre del finalizer de Argo CD) |
 | Prueba de humo dev + qa sin GHCR (`k3d image import` con el SHA de los overlays, `kubectl apply -k`) | OK tras recrear los hooks a mano (ver punto 17): migración aplicada, `/health` y `/` → 200 por Ingress en `dev.` y `qa.beybladeperu.localhost`, Job `api-tests` en QA 45/45 |
+| CI del PR #1 de la app (build back/front, `prisma-drift`) | OK: 3 jobs en verde; GHCR y el PR a GitOps se omiten en los PR, como corresponde |
+| CI de `main` tras el merge (`6383a7b`) | OK: imágenes publicadas en GHCR y PR automático abierto en el repo GitOps con `BEYBLADE_TOKEN` |
+| Imágenes de GHCR públicas | OK: el manifest de `backend`, `backend-tests` y `frontend` responde 200 sin credenciales |
+| Argo CD: `beybladeperu-dev` | OK: Synced/Healthy en 80 s; imagen de GHCR (`sha256:ca9ecd48…`); facciones inicializadas |
+| Argo CD: `beybladeperu-qa` (PostSync `api-tests`) | OK: Synced/Healthy en 150 s; `api-tests` 45/45 |
+| Argo CD: `beybladeperu-prod` | OK: Synced/Healthy en 60 s; 1 backend + 2 frontend; PVC de 5Gi |
+| Ingress en los 3 hosts (`/health`, `/`, `/api/factions`) | OK: 200 en `dev.`, `qa.` y `beybladeperu.localhost`, después del arreglo del punto 21 |
