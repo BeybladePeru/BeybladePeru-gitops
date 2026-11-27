@@ -1,4 +1,4 @@
-﻿# Overlay QA: se promueve copiando el SHA validado en dev (PR manual).
+# Overlay QA: se promueve copiando el SHA validado en dev (PR manual).
 # Ademas de la app, ejecuta la suite HTTP (test-job.yaml) como hook PostSync.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
