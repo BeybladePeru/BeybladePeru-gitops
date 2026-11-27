@@ -9,9 +9,9 @@ resources:
 # Tag = SHA completo del commit de BeybladePeru (nunca :latest). El CI reescribe estas lineas.
 images:
   - name: ghcr.io/lolxd123v2/beybladeperu-backend
-    newTag: 6383a7be8a128267aeb5b2a2aa8a31298a4bae0f
+    newTag: 2f9b326629e57ec7438c2fbe49796e1517452d2e
   - name: ghcr.io/lolxd123v2/beybladeperu-frontend
-    newTag: 6383a7be8a128267aeb5b2a2aa8a31298a4bae0f
+    newTag: 2f9b326629e57ec7438c2fbe49796e1517452d2e
 patches:
   # Host del Ingress de este ambiente
   - target:
